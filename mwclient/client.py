@@ -13,10 +13,8 @@ except ImportError:
     # Python 2.6
     from ordereddict import OrderedDict
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
+
+import simplejson as json
 import requests
 from requests.auth import HTTPBasicAuth, AuthBase
 
@@ -287,6 +285,25 @@ class Site(object):
         data = self._query_string(*args, **kwargs)
         res = self.raw_call('api', data)
 
+
+	first = res.find("legaltitlechars")
+	if first is not -1:
+		second = res.find(',"case":"first-letter"',first)
+
+		res = res[:first-2] + res[second:]
+		res = "{\""+res[3:]
+
+	first = res.find('warnings')
+
+	if first != -1:
+		second = res.find('},',first)
+		res = res[:first-2] + res[second:]
+		res = "{"+res[3:]
+
+
+	if res.startswith(u'\ufeff'):
+		res = res[1:]
+
         try:
             return json.loads(res)
         except ValueError:
@@ -530,6 +547,17 @@ class Site(object):
         while True:
             try:
                 data = self.raw_call('api', postdata, files)
+
+
+		# Remove html entity since it causes JSON errors
+		first = data.find('"html":')
+		second = data.find('"canonicaltitle":')
+
+		data = data[:first] + data[second:]
+
+		# Remove ufeff since it causes JSON errors
+		if data.startswith(u'\ufeff'):
+			data = data[1:]
                 info = json.loads(data)
                 if not info:
                     info = {}
@@ -746,3 +774,4 @@ class Site(object):
             kwargs['title'] = title
         result = self.raw_api('ask', query=query, **kwargs)
         return result['query']['results']
+
